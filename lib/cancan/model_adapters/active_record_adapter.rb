@@ -19,10 +19,15 @@ module CanCan
       def conditions
         if @rules.size == 1 && @rules.first.base_behavior
           # Return the conditions directly if there's just one definition
+          return {} if @rules.first.conditions_empty?
           tableized_conditions(@rules.first.conditions).dup
         else
           @rules.reverse.inject(false_sql) do |sql, rule|
-            merge_conditions(sql, tableized_conditions(rule.conditions).dup, rule.base_behavior)
+            if rule.conditions_empty?
+              rule.base_behavior ? true_sql : false_sql
+            else
+              merge_conditions(sql, tableized_conditions(rule.conditions).dup, rule.base_behavior)
+            end
           end
         end
       end
@@ -93,18 +98,14 @@ module CanCan
       end
 
       def merge_conditions(sql, conditions_hash, behavior)
-        if conditions_hash.blank?
-          behavior ? true_sql : false_sql
+        conditions = sanitize_sql(conditions_hash)
+        case sql
+        when true_sql
+          behavior ? true_sql : "not (#{conditions})"
+        when false_sql
+          behavior ? conditions : false_sql
         else
-          conditions = sanitize_sql(conditions_hash)
-          case sql
-          when true_sql
-            behavior ? true_sql : "not (#{conditions})"
-          when false_sql
-            behavior ? conditions : false_sql
-          else
-            behavior ? "(#{conditions}) OR (#{sql})" : "not (#{conditions}) AND (#{sql})"
-          end
+          behavior ? "(#{conditions}) OR (#{sql})" : "not (#{conditions}) AND (#{sql})"
         end
       end
 
