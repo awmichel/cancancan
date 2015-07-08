@@ -59,6 +59,10 @@ module CanCan
         (!@conditions.keys.first.kind_of? Symbol)
     end
 
+    def requires_instance?
+      !(conditions_empty? && @block.nil?)
+    end
+
     def associations_hash(conditions = @conditions)
       hash = {}
       conditions.map do |name, value|
